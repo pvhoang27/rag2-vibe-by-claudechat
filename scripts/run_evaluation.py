@@ -6,8 +6,8 @@ Usage: python scripts/run_evaluation.py
 """
 
 import asyncio
-import json
 import sys
+import time
 from pathlib import Path
 
 # Add project root to path
@@ -57,6 +57,25 @@ EVAL_SAMPLES = [
 ]
 
 
+async def _progress_heartbeat(stop_event: asyncio.Event, interval: int = 10) -> None:
+    """Print periodic progress updates while waiting for a long-running request."""
+    start = time.perf_counter()
+    tick = 0
+    spinner = ["|", "/", "-", "\\"]
+    while not stop_event.is_set():
+        elapsed = int(time.perf_counter() - start)
+        mm, ss = divmod(elapsed, 60)
+        icon = spinner[tick % len(spinner)]
+        console.print(
+            f"   [dim]{icon} Processing... elapsed {mm:02d}:{ss:02d} (waiting for /eval/run)[/dim]"
+        )
+        tick += 1
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            continue
+
+
 async def main():
     import httpx
 
@@ -98,10 +117,36 @@ async def main():
     console.print("   [dim]This may take several minutes depending on your machine…[/dim]\n")
 
     payload = {"samples": EVAL_SAMPLES}
-    async with httpx.AsyncClient(timeout=600) as client:
-        response = await client.post(f"{BASE_URL}/eval/run", json=payload)
-        response.raise_for_status()
-        report = response.json()
+    stop_event = asyncio.Event()
+    heartbeat_task = asyncio.create_task(_progress_heartbeat(stop_event, interval=10))
+
+    report = None
+    try:
+        async with httpx.AsyncClient(timeout=600) as client:
+            response = await client.post(f"{BASE_URL}/eval/run", json=payload)
+            response.raise_for_status()
+            report = response.json()
+    except httpx.ReadTimeout:
+        console.print("   [red]✗ Request timeout after 10 minutes (600s).[/red]")
+        console.print("   [dim]Tip: reduce sample count or optimize /eval/run on server side.[/dim]")
+        sys.exit(1)
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        detail = ""
+        try:
+            body = exc.response.json()
+            detail = body.get("detail", "") if isinstance(body, dict) else str(body)
+        except Exception:
+            detail = exc.response.text
+
+        console.print(f"   [red]✗ Server returned HTTP {status} for /eval/run.[/red]")
+        if detail:
+            console.print(f"   [red]Detail:[/red] {detail}")
+        console.print("   [dim]Check API logs to see the stack trace of the failing metric/model call.[/dim]")
+        sys.exit(1)
+    finally:
+        stop_event.set()
+        await heartbeat_task
 
     # Display results table
     table = Table(
