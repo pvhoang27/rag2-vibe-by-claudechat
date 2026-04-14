@@ -4,3 +4,39 @@ Chạy 2 mẫu cho nhanh hơn nữa:
 uv run python run_evaluation.py --samples 2
 Chạy full 8 mẫu khi cần:
 uv run python run_evaluation.py --samples 8
+
+
+
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
+
+cd scripts
+uv run python run_evaluation.py --samples 1 --stall-timeout 120
+
+
+run_evaluation.py --samples 1 --stall-timeout 120
+╭───────────────────────────────────────╮
+│ RAG Chatbot — RAGAS Evaluation Runner │
+│ Evaluating 1/8 QA pairs               │
+╰───────────────────────────────────────╯
+
+1. Checking server health…
+   ✓ Server is running
+
+2. Checking vector collection…
+   ✓ Collection 'rag_collection' has 138 chunks
+
+3. Running RAGAS evaluation on 1 samples…
+   This may take several minutes depending on your machine…
+
+    35.00% [████████░░░░░░░░░░░░░░░░] retrieving 0/1 | 00:00
+   Retrieving context for sample 1/1
+    75.00% [██████████████████░░░░░░] scoring 1/1 | 00:37
+   Running RAGAS metrics
+   No progress change for 01:20...
+   No progress change for 01:30...
+   No progress change for 01:40...
+   No progress change for 01:50...
+   ✗ No progress change for 02:01. Auto-aborting request.
+   Tip: reduce samples further (e.g. --samples 1) or disable auto-abort with 
+--stall-timeout 0.
+(rag-chatbot) PS D:\Downloads\rag_chatbot\rag_chatbot> 

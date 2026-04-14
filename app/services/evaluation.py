@@ -13,6 +13,7 @@ Metrics evaluated:
 from __future__ import annotations
 
 import json
+import re
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -43,6 +44,20 @@ METRIC_DESCRIPTIONS = {
     "context_recall": "Context retrieve được bao phủ ground truth đến đâu (0–1, càng cao càng tốt)",
     "context_precision": "Context retrieve có chính xác, không có nhiễu không (0–1, càng cao càng tốt)",
 }
+
+METRIC_ALIASES = {
+    "faithfulness": ["faithfulness"],
+    "answer_relevancy": ["answer_relevancy", "answer_relevance", "response_relevancy", "response_relevance"],
+    "context_recall": ["context_recall", "context_entity_recall"],
+    "context_precision": [
+        "context_precision",
+        "context_precision_without_reference",
+        "context_precision_with_reference",
+    ],
+}
+
+FAST_METRICS = [answer_relevancy]
+FULL_METRICS = [faithfulness, answer_relevancy, context_recall, context_precision]
 
 
 class EvaluationService:
@@ -75,7 +90,7 @@ class EvaluationService:
             )
         )
 
-    def run(self, samples: list[EvalSample]) -> EvalReport:
+    def run(self, samples: list[EvalSample], mode: str = "full", output_tag: str | None = None) -> EvalReport:
         """
         Execute full RAGAS evaluation pipeline.
 
@@ -85,14 +100,18 @@ class EvaluationService:
           3. Run RAGAS metrics with local Ollama models.
           4. Aggregate scores into EvalReport and persist to disk.
         """
-        logger.info(f"Starting evaluation on {len(samples)} samples …")
+        run_mode = (mode or "full").strip().lower()
+        if run_mode not in {"full", "fast"}:
+            raise ValueError("mode must be 'full' or 'fast'")
+
+        logger.info(f"Starting evaluation on {len(samples)} samples (mode={run_mode}) …")
         self._set_progress(
             is_running=True,
             stage="retrieving",
             percent=0.0,
             completed_samples=0,
             total_samples=len(samples),
-            message="Preparing evaluation",
+            message=f"Preparing evaluation ({run_mode} mode)",
         )
 
         try:
@@ -105,7 +124,7 @@ class EvaluationService:
                 message="Running RAGAS metrics",
             )
 
-            metrics = [faithfulness, answer_relevancy, context_recall, context_precision]
+            metrics = FAST_METRICS if run_mode == "fast" else FULL_METRICS
             for metric in metrics:
                 metric.llm = self._llm_wrapper
                 if hasattr(metric, "embeddings"):
@@ -120,8 +139,8 @@ class EvaluationService:
                 message="Persisting report",
             )
 
-            report = self._build_report(result, sample_count=len(samples))
-            self._persist_report(report, rows)
+            report = self._build_report(result, sample_count=len(samples), selected_metrics=metrics)
+            self._persist_report(report, rows, mode=run_mode, output_tag=output_tag)
             logger.info(
                 f"Evaluation complete | overall_score={report.overall_score:.4f} | "
                 f"saved to {report.output_path}"
@@ -207,12 +226,58 @@ class EvaluationService:
             current["updated_at"] = datetime.utcnow()
             self._progress = EvalProgress(**current)
 
-    def _build_report(self, ragas_result, sample_count: int) -> EvalReport:
+    def _build_report(self, ragas_result, sample_count: int, selected_metrics: list) -> EvalReport:
         metric_scores: list[MetricScore] = []
         raw_scores: list[float] = []
 
+        scores_by_metric: dict[str, float] = {}
+        selected_metric_names = {getattr(m, "name", "") for m in selected_metrics}
+
+        # RAGAS return type differs across versions (dict vs EvaluationResult).
+        if isinstance(ragas_result, dict):
+            for k, v in ragas_result.items():
+                try:
+                    scores_by_metric[str(k)] = float(v)
+                except (TypeError, ValueError):
+                    continue
+        else:
+            as_dict = None
+            if hasattr(ragas_result, "to_dict"):
+                try:
+                    as_dict = ragas_result.to_dict()
+                except Exception:
+                    as_dict = None
+
+            if isinstance(as_dict, dict):
+                for k, v in as_dict.items():
+                    try:
+                        scores_by_metric[str(k)] = float(v)
+                    except (TypeError, ValueError):
+                        continue
+
+            # Fallback: compute mean scores from per-sample dataframe.
+            if not scores_by_metric and hasattr(ragas_result, "to_pandas"):
+                try:
+                    df = ragas_result.to_pandas()
+                    for col in df.columns:
+                        value = pd.to_numeric(df[col], errors="coerce").mean()
+                        if pd.notna(value):
+                            scores_by_metric[str(col)] = float(value)
+                except Exception:
+                    pass
+
+        normalized = self._normalize_metric_scores(scores_by_metric)
+        if not normalized:
+            available = sorted(scores_by_metric.keys())
+            raise ValueError(
+                "Could not parse RAGAS metric scores from response. "
+                f"Available keys: {available}"
+            )
+
         for metric_name, description in METRIC_DESCRIPTIONS.items():
-            score = float(ragas_result.get(metric_name, 0.0) or 0.0)
+            if selected_metric_names and metric_name not in selected_metric_names:
+                continue
+            score = float(normalized.get(metric_name, 0.0) or 0.0)
             raw_scores.append(score)
             metric_scores.append(
                 MetricScore(
@@ -231,13 +296,36 @@ class EvaluationService:
             model=self._settings.ollama_llm_model,
         )
 
-    def _persist_report(self, report: EvalReport, rows: list[dict]) -> None:
+    def _normalize_metric_scores(self, raw: dict[str, float]) -> dict[str, float]:
+        normalized: dict[str, float] = {}
+        lowered = {str(k).strip().lower(): v for k, v in raw.items()}
+
+        for canonical, aliases in METRIC_ALIASES.items():
+            for alias in aliases:
+                if alias in lowered:
+                    try:
+                        value = float(lowered[alias])
+                    except (TypeError, ValueError):
+                        continue
+                    if pd.notna(value):
+                        normalized[canonical] = value
+                        break
+        return normalized
+
+    def _persist_report(self, report: EvalReport, rows: list[dict], mode: str, output_tag: str | None) -> None:
         out_dir = Path(self._settings.eval_output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        json_path = out_dir / f"eval_report_{timestamp}.json"
-        csv_path = out_dir / f"eval_detail_{timestamp}.csv"
+        safe_mode = re.sub(r"[^a-zA-Z0-9_-]", "", mode) or "full"
+        safe_tag = re.sub(r"[^a-zA-Z0-9_-]", "", (output_tag or "").strip())
+        suffix = f"_{safe_mode}"
+        if safe_tag:
+            suffix += f"_{safe_tag}"
+        json_path = out_dir / f"eval_report_{timestamp}{suffix}.json"
+        csv_path = out_dir / f"eval_detail_{timestamp}{suffix}.csv"
+
+        report.output_path = str(json_path)
 
         # Save JSON report
         json_path.write_text(
@@ -247,5 +335,3 @@ class EvaluationService:
 
         # Save per-sample CSV
         pd.DataFrame(rows).to_csv(csv_path, index=False, encoding="utf-8-sig")
-
-        report.output_path = str(json_path)

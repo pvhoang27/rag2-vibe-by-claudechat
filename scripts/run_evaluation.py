@@ -61,6 +61,22 @@ EVAL_SAMPLES = [
 DEFAULT_SAMPLE_COUNT = 3
 
 
+def _looks_like_ollama_error(status: int, detail: str) -> bool:
+    detail_l = (detail or "").lower()
+    if status not in {500, 502, 503}:
+        return False
+    return any(
+        marker in detail_l
+        for marker in [
+            "ollama",
+            "11434",
+            "connection refused",
+            "winerror 10061",
+            "/api/embeddings",
+        ]
+    )
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run RAGAS evaluation against local API.")
     parser.add_argument(
@@ -81,6 +97,17 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=180,
         help="Auto-abort if progress does not change for N seconds (default: 180, set 0 to disable)",
+    )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Use fast evaluation mode (fewer metrics, better for weak machines).",
+    )
+    parser.add_argument(
+        "--tag",
+        type=str,
+        default="",
+        help="Optional output file tag (e.g. --tag weak_pc_test).",
     )
     return parser.parse_args()
 
@@ -193,6 +220,7 @@ async def main():
 
     BASE_URL = args.base_url.rstrip("/")
     stall_timeout_sec = max(0, args.stall_timeout)
+    mode = "fast" if args.fast else "full"
 
     console.print(Panel.fit(
         "[bold cyan]RAG Chatbot — RAGAS Evaluation Runner[/bold cyan]\n"
@@ -223,7 +251,7 @@ async def main():
             sys.exit(1)
 
     # Run evaluation
-    console.print(f"\n[yellow]3. Running RAGAS evaluation on {len(selected_samples)} samples…[/yellow]")
+    console.print(f"\n[yellow]3. Running RAGAS evaluation on {len(selected_samples)} samples ({mode} mode)…[/yellow]")
     console.print("   [dim]This may take several minutes depending on your machine…[/dim]\n")
 
     payload = {"samples": selected_samples}
@@ -242,7 +270,16 @@ async def main():
     report = None
     try:
         async with httpx.AsyncClient(timeout=600) as client:
-            request_task = asyncio.create_task(client.post(f"{BASE_URL}/eval/run", json=payload))
+            request_task = asyncio.create_task(
+                client.post(
+                    f"{BASE_URL}/eval/run",
+                    params={
+                        "mode": mode,
+                        "tag": (args.tag or "").strip() or None,
+                    },
+                    json=payload,
+                )
+            )
             while not request_task.done():
                 if abort_event.is_set():
                     request_task.cancel()
@@ -274,6 +311,14 @@ async def main():
         console.print(f"   [red]✗ Server returned HTTP {status} for /eval/run.[/red]")
         if detail:
             console.print(f"   [red]Detail:[/red] {detail}")
+        if _looks_like_ollama_error(status, detail):
+            console.print("   [yellow]Ollama appears to be offline or unreachable.[/yellow]")
+            console.print("   [dim]Run in another terminal:[/dim] [bold]ollama serve[/bold]")
+            console.print(
+                "   [dim]Then ensure required models exist:[/dim] "
+                "[bold]ollama pull llama3.2:3b[/bold] and [bold]ollama pull nomic-embed-text[/bold]"
+            )
+            console.print("   [dim]Quick check:[/dim] [bold]ollama list[/bold]")
         console.print("   [dim]Check API logs to see the stack trace of the failing metric/model call.[/dim]")
         sys.exit(1)
     finally:
