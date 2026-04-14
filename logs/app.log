@@ -2631,3 +2631,16 @@ ValueError: Could not parse RAGAS metric scores from response. Available keys: [
 2026-04-14 15:57:12 | WARNING  | app.services.evaluation:_build_report:280 — RAGAS returned no usable numeric metrics. Falling back to 0.0 scores. Raw keys=%s
 2026-04-14 15:57:12 | WARNING  | app.services.evaluation:_build_report:308 — One or more metrics used heuristic fallback scoring due unusable RAGAS output
 2026-04-14 15:57:12 | INFO     | app.services.evaluation:run:145 — Evaluation complete | overall_score=0.7911 | saved to data\eval_results\eval_report_20260414_085712_full_fallback_check_v1.json
+2026-04-14 16:00:30 | INFO     | app.services.evaluation:run:108 — Starting evaluation on 2 samples (mode=full) …
+2026-04-14 16:00:30 | DEBUG    | app.services.evaluation:_build_eval_rows:183 —   [1/2] Running RAG for: AI là gì và được phát minh vào năm nào?…
+2026-04-14 16:00:32 | WARNING  | app.services.vector_store:similarity_search:60 — No chunks passed threshold %.3f, fallback to top-%d results
+2026-04-14 16:00:32 | DEBUG    | app.services.vector_store:similarity_search:66 — Retrieved 3/3 chunks above threshold 0.3
+2026-04-14 16:01:10 | INFO     | app.services.rag_chain:query:75 — Query answered in 40218ms | chunks_retrieved=3 | model=llama3.2:3b
+2026-04-14 16:01:10 | DEBUG    | app.services.evaluation:_build_eval_rows:183 —   [2/2] Running RAG for: Machine Learning có những loại nào?…
+2026-04-14 16:01:12 | WARNING  | app.services.vector_store:similarity_search:60 — No chunks passed threshold %.3f, fallback to top-%d results
+2026-04-14 16:01:12 | DEBUG    | app.services.vector_store:similarity_search:66 — Retrieved 3/3 chunks above threshold 0.3
+2026-04-14 16:01:21 | INFO     | app.services.rag_chain:query:75 — Query answered in 11626ms | chunks_retrieved=3 | model=llama3.2:3b
+2026-04-14 16:01:21 | INFO     | app.services.evaluation:run:134 — Running RAGAS evaluation — this may take a few minutes …
+2026-04-14 16:04:23 | WARNING  | app.services.evaluation:_build_report:280 — RAGAS returned no usable numeric metrics. Falling back to 0.0 scores. Raw keys=%s
+2026-04-14 16:04:23 | WARNING  | app.services.evaluation:_build_report:308 — One or more metrics used heuristic fallback scoring due unusable RAGAS output
+2026-04-14 16:04:23 | INFO     | app.services.evaluation:run:145 — Evaluation complete | overall_score=0.5572 | saved to data\eval_results\eval_report_20260414_090423_full_weakpc_v4.json
