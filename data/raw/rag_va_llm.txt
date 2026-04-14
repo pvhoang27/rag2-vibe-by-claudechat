@@ -1,0 +1,49 @@
+RAG (Retrieval-Augmented Generation) và Large Language Models
+
+Large Language Models (LLMs):
+LLM là các mô hình ngôn ngữ lớn được huấn luyện trên lượng dữ liệu văn bản khổng lồ.
+Các LLM nổi tiếng bao gồm GPT-4 (OpenAI), Claude (Anthropic), Gemini (Google),
+LLaMA (Meta), Mistral.
+
+Hạn chế của LLM thuần túy:
+- Knowledge cutoff: Kiến thức bị giới hạn đến thời điểm huấn luyện
+- Hallucination: Có thể bịa đặt thông tin không chính xác
+- Không có kiến thức về tài liệu nội bộ của tổ chức
+- Không thể cập nhật thông tin theo thời gian thực
+
+RAG (Retrieval-Augmented Generation):
+RAG là kiến trúc kết hợp khả năng sinh văn bản của LLM với việc truy xuất thông tin
+từ cơ sở dữ liệu vector. Điều này giúp LLM trả lời dựa trên tài liệu thực tế, giảm
+thiểu hallucination.
+
+Kiến trúc RAG cơ bản:
+1. Indexing Phase (Giai đoạn lập chỉ mục):
+   - Load tài liệu từ nhiều nguồn (PDF, TXT, Web...)
+   - Chia tài liệu thành các chunk nhỏ
+   - Tạo embedding vector cho mỗi chunk
+   - Lưu vào vector database (ChromaDB, Pinecone, Weaviate...)
+
+2. Retrieval Phase (Giai đoạn truy xuất):
+   - Người dùng đặt câu hỏi
+   - Câu hỏi được chuyển thành embedding vector
+   - Tìm kiếm similarity trong vector database
+   - Lấy top-k chunks liên quan nhất
+
+3. Generation Phase (Giai đoạn sinh):
+   - Kết hợp câu hỏi + context đã retrieve
+   - Đưa vào LLM để sinh câu trả lời
+   - Trả về câu trả lời kèm nguồn tham khảo
+
+Đánh giá chất lượng RAG với RAGAS:
+RAGAS là framework chuyên dụng để đánh giá hệ thống RAG với các metrics:
+- Faithfulness: Câu trả lời có dựa trên context không?
+- Answer Relevancy: Câu trả lời có liên quan câu hỏi không?
+- Context Recall: Context có bao phủ đủ thông tin cần thiết không?
+- Context Precision: Context retrieve có chính xác không, ít nhiễu không?
+
+Vector Databases phổ biến:
+- ChromaDB: Open-source, nhẹ, phù hợp prototype
+- Pinecone: Cloud-based, scalable, production-ready
+- Weaviate: Open-source, hỗ trợ hybrid search
+- Qdrant: Hiệu năng cao, hỗ trợ filtering phức tạp
+- FAISS: Thư viện Facebook, tối ưu tốc độ tìm kiếm

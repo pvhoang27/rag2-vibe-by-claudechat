@@ -1,0 +1,32 @@
+Trí Tuệ Nhân Tạo (AI) - Tổng Quan
+
+Trí tuệ nhân tạo (Artificial Intelligence - AI) là lĩnh vực khoa học máy tính tập trung vào
+việc xây dựng các hệ thống có khả năng thực hiện các tác vụ thường đòi hỏi trí thông minh
+của con người.
+
+Lịch sử phát triển AI:
+AI được khai sinh vào năm 1956 tại Hội nghị Dartmouth, nơi John McCarthy lần đầu tiên
+đặt ra thuật ngữ "trí tuệ nhân tạo". Từ đó đến nay, AI đã trải qua nhiều giai đoạn thăng trầm.
+
+Giai đoạn 1956-1974 được gọi là "Mùa xuân AI" đầu tiên, khi các nhà nghiên cứu rất lạc quan
+về tiềm năng của AI. Tuy nhiên, do hạn chế về phần cứng và dữ liệu, AI rơi vào "Mùa đông AI"
+lần đầu tiên vào những năm 1974-1980.
+
+Các nhánh chính của AI:
+1. Machine Learning (Học máy): Cho phép máy tính học từ dữ liệu mà không cần lập trình
+   rõ ràng. Bao gồm supervised learning, unsupervised learning và reinforcement learning.
+
+2. Deep Learning (Học sâu): Sử dụng mạng nơ-ron nhân tạo nhiều lớp để xử lý dữ liệu
+   phức tạp. Đây là nền tảng của nhiều ứng dụng AI hiện đại.
+
+3. Natural Language Processing (NLP): Cho phép máy tính hiểu và xử lý ngôn ngữ tự nhiên
+   của con người.
+
+4. Computer Vision: Cho phép máy tính "nhìn" và hiểu hình ảnh, video.
+
+Ứng dụng AI trong thực tế:
+- Y tế: Chẩn đoán bệnh qua hình ảnh, phát hiện ung thư sớm
+- Tài chính: Phát hiện gian lận, dự đoán thị trường
+- Giao thông: Xe tự lái, tối ưu hóa giao thông
+- Giáo dục: Cá nhân hóa lộ trình học tập
+- Sản xuất: Robot công nghiệp, kiểm soát chất lượng

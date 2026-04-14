@@ -16,9 +16,9 @@ build/
 .uv/
 
 # Data (sensitive / large)
-data/chroma_db/
-data/raw/
-data/eval_results/
+# data/chroma_db/
+# data/raw/
+# data/eval_results/
 
 # IDE
 .vscode/
@@ -29,5 +29,5 @@ data/eval_results/
 Thumbs.db
 
 # Logs
-*.log
-logs/
+# *.log
+# logs/

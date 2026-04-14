@@ -1,0 +1,53 @@
+Python cho AI và Data Science
+
+Python là ngôn ngữ lập trình phổ biến nhất trong lĩnh vực AI và Data Science nhờ
+cú pháp đơn giản, hệ sinh thái thư viện phong phú và cộng đồng lớn.
+
+Thư viện AI/ML quan trọng:
+
+1. NumPy:
+   - Tính toán số học với mảng đa chiều
+   - Nền tảng của hầu hết thư viện AI khác
+   - Ví dụ: np.array(), np.dot(), np.reshape()
+
+2. Pandas:
+   - Xử lý và phân tích dữ liệu dạng bảng
+   - DataFrame là cấu trúc dữ liệu chính
+   - Ví dụ: pd.read_csv(), df.groupby(), df.merge()
+
+3. Scikit-learn:
+   - Thư viện ML toàn diện nhất cho Python
+   - Hỗ trợ hầu hết thuật toán ML cổ điển
+   - API nhất quán: fit(), predict(), transform()
+
+4. PyTorch:
+   - Framework Deep Learning phổ biến nhất trong nghiên cứu
+   - Dynamic computation graph
+   - Được dùng trong hầu hết LLM hiện đại
+
+5. TensorFlow/Keras:
+   - Framework Deep Learning của Google
+   - Production-ready, hỗ trợ mobile và web deployment
+
+6. LangChain:
+   - Framework xây dựng ứng dụng với LLM
+   - Hỗ trợ RAG, Agents, Chains
+   - Tích hợp với hầu hết LLM và vector stores
+
+7. HuggingFace Transformers:
+   - Hub của hàng nghìn pre-trained models
+   - Dễ dàng fine-tuning và inference
+
+Môi trường phát triển:
+- Jupyter Notebook/Lab: Ideal cho EDA và prototyping
+- VS Code: IDE phổ biến với extensions mạnh mẽ
+- Google Colab: Free GPU/TPU trên cloud
+- uv: Package manager Python thế hệ mới, nhanh hơn pip nhiều lần
+
+Best Practices khi code AI:
+1. Luôn set random seed để reproducibility
+2. Version control dữ liệu và model (DVC, MLflow)
+3. Logging đầy đủ quá trình training
+4. Tách biệt config ra file riêng (.env, yaml)
+5. Viết unit test cho preprocessing pipeline
+6. Document code và model card rõ ràng

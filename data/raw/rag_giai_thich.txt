@@ -1,0 +1,10 @@
+RAG (Retrieval-Augmented Generation) là gì?
+
+RAG là viết tắt của Retrieval-Augmented Generation, một kỹ thuật kết hợp giữa truy xuất thông tin (retrieval) và sinh văn bản (generation) bằng mô hình ngôn ngữ lớn (LLM).
+
+Tại sao cần dùng RAG?
+- RAG giúp chatbot hoặc hệ thống hỏi đáp trả lời chính xác hơn bằng cách lấy thông tin từ tài liệu thực tế, thay vì chỉ dựa vào kiến thức có sẵn trong mô hình.
+- Khi nhận được câu hỏi, hệ thống sẽ truy xuất các đoạn văn bản liên quan từ kho dữ liệu (retrieval), sau đó sử dụng LLM để tổng hợp và sinh ra câu trả lời dựa trên các đoạn này.
+- Nhờ đó, RAG vừa tận dụng được sức mạnh của LLM, vừa đảm bảo thông tin trả lời luôn cập nhật và sát với dữ liệu thực tế.
+
+Ứng dụng của RAG rất phổ biến trong chatbot doanh nghiệp, trợ lý ảo, tìm kiếm tri thức nội bộ, v.v.

@@ -1,0 +1,6 @@
+Đây là file test để kiểm tra ingest.
+Nội dung này đủ dài để sinh ra nhiều chunk khi split.
+Bạn có thể thêm nhiều dòng nữa để đảm bảo file không quá ngắn.
+Dòng 4: Thử nghiệm ingest dữ liệu vào vector store.
+Dòng 5: Tiếp tục bổ sung nội dung để chunking hoạt động.
+Dòng 6: Kết thúc file test.

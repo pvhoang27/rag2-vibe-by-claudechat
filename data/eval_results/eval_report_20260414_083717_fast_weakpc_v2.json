@@ -1,0 +1,14 @@
+{
+  "metrics": [
+    {
+      "name": "answer_relevancy",
+      "score": 0.0,
+      "description": "C\u00e2u tr\u1ea3 l\u1eddi c\u00f3 li\u00ean quan \u0111\u1ebfn c\u00e2u h\u1ecfi kh\u00f4ng (0\u20131, c\u00e0ng cao c\u00e0ng t\u1ed1t)"
+    }
+  ],
+  "overall_score": 0.0,
+  "sample_count": 1,
+  "model": "llama3.2:3b",
+  "timestamp": "2026-04-14 08:37:17.769032",
+  "output_path": "data\\eval_results\\eval_report_20260414_083717_fast_weakpc_v2.json"
+}

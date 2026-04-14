@@ -1,0 +1,43 @@
+Machine Learning - Học Máy
+
+Machine Learning (ML) là một nhánh của AI cho phép hệ thống học hỏi và cải thiện từ
+kinh nghiệm mà không cần lập trình rõ ràng.
+
+Các loại Machine Learning:
+
+1. Supervised Learning (Học có giám sát):
+   Mô hình được huấn luyện trên tập dữ liệu đã được gán nhãn. Ví dụ:
+   - Phân loại email spam/không spam
+   - Dự đoán giá nhà
+   - Nhận diện khuôn mặt
+   
+   Thuật toán phổ biến: Linear Regression, Logistic Regression, Decision Tree,
+   Random Forest, Support Vector Machine (SVM), Neural Networks.
+
+2. Unsupervised Learning (Học không giám sát):
+   Mô hình tự tìm kiếm cấu trúc ẩn trong dữ liệu không có nhãn. Ví dụ:
+   - Phân nhóm khách hàng (Customer Segmentation)
+   - Phát hiện bất thường (Anomaly Detection)
+   - Giảm chiều dữ liệu
+   
+   Thuật toán phổ biến: K-Means Clustering, DBSCAN, PCA, Autoencoders.
+
+3. Reinforcement Learning (Học tăng cường):
+   Agent học cách hành động trong môi trường để tối đa hóa phần thưởng. Ví dụ:
+   - AlphaGo (chơi cờ vây)
+   - Điều khiển robot
+   - Tối ưu hóa quảng cáo
+
+Quy trình xây dựng mô hình ML:
+1. Thu thập và làm sạch dữ liệu (Data Collection & Cleaning)
+2. Phân tích khám phá dữ liệu (EDA - Exploratory Data Analysis)
+3. Feature Engineering (Kỹ thuật đặc trưng)
+4. Chọn và huấn luyện mô hình (Model Selection & Training)
+5. Đánh giá mô hình (Model Evaluation)
+6. Triển khai (Deployment)
+7. Giám sát và cập nhật (Monitoring & Maintenance)
+
+Các metrics đánh giá mô hình:
+- Accuracy, Precision, Recall, F1-Score (cho bài toán phân loại)
+- MAE, RMSE, R² (cho bài toán hồi quy)
+- AUC-ROC (đánh giá tổng thể classifier)
