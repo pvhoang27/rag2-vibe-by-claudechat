@@ -69,6 +69,12 @@ def _parse_args() -> argparse.Namespace:
         default=DEFAULT_SAMPLE_COUNT,
         help=f"Number of QA samples to evaluate (default: {DEFAULT_SAMPLE_COUNT}, max: {len(EVAL_SAMPLES)})",
     )
+    parser.add_argument(
+        "--base-url",
+        type=str,
+        default="http://127.0.0.1:8000",
+        help="API base URL (default: http://127.0.0.1:8000)",
+    )
     return parser.parse_args()
 
 
@@ -91,6 +97,28 @@ async def _progress_heartbeat(stop_event: asyncio.Event, interval: int = 10) -> 
             continue
 
 
+async def _wait_for_server(base_url: str, attempts: int = 5, timeout_sec: int = 5) -> bool:
+    """Retry health checks to survive brief server reload windows."""
+    import httpx
+
+    for attempt in range(1, attempts + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout_sec) as client:
+                r = await client.get(f"{base_url}/health")
+                r.raise_for_status()
+            return True
+        except Exception as exc:
+            if attempt == attempts:
+                detail = str(exc).strip() or repr(exc)
+                console.print(f"   [red]✗ Server not reachable: {detail}[/red]")
+                return False
+            console.print(
+                f"   [dim]Health check attempt {attempt}/{attempts} failed, retrying in 2s...[/dim]"
+            )
+            await asyncio.sleep(2)
+    return False
+
+
 async def main():
     import httpx
 
@@ -98,7 +126,7 @@ async def main():
     requested_samples = max(1, min(args.samples, len(EVAL_SAMPLES)))
     selected_samples = EVAL_SAMPLES[:requested_samples]
 
-    BASE_URL = "http://localhost:8000"
+    BASE_URL = args.base_url.rstrip("/")
 
     console.print(Panel.fit(
         "[bold cyan]RAG Chatbot — RAGAS Evaluation Runner[/bold cyan]\n"
@@ -108,14 +136,11 @@ async def main():
 
     # Check server health
     console.print("\n[yellow]1. Checking server health…[/yellow]")
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(f"{BASE_URL}/health")
-            r.raise_for_status()
+    if await _wait_for_server(BASE_URL, attempts=5, timeout_sec=5):
         console.print("   [green]✓ Server is running[/green]")
-    except Exception as e:
-        console.print(f"   [red]✗ Server not reachable: {e}[/red]")
+    else:
         console.print("   [dim]Please start the server with: uv run uvicorn app.main:app --reload[/dim]")
+        console.print(f"   [dim]Current BASE_URL: {BASE_URL}[/dim]")
         sys.exit(1)
 
     # Check collection has documents
