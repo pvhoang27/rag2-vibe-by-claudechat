@@ -2586,3 +2586,15 @@ ValueError: Could not parse RAGAS metric scores from response. Available keys: [
 2026-04-14 15:37:55 | INFO     | app.main:lifespan:24 — Starting RAG Chatbot v0.1.0 [development]
 2026-04-14 15:37:55 | INFO     | app.main:lifespan:25 — LLM  : llama3.2:3b  @  http://localhost:11434
 2026-04-14 15:37:55 | INFO     | app.main:lifespan:26 — Embed: nomic-embed-text
+2026-04-14 15:42:11 | INFO     | app.services.evaluation:run:107 — Starting evaluation on 2 samples (mode=full) …
+2026-04-14 15:42:11 | DEBUG    | app.services.evaluation:_build_eval_rows:182 —   [1/2] Running RAG for: AI là gì và được phát minh vào năm nào?…
+2026-04-14 15:42:13 | WARNING  | app.services.vector_store:similarity_search:60 — No chunks passed threshold %.3f, fallback to top-%d results
+2026-04-14 15:42:13 | DEBUG    | app.services.vector_store:similarity_search:66 — Retrieved 3/3 chunks above threshold 0.3
+2026-04-14 15:42:44 | INFO     | app.services.rag_chain:query:75 — Query answered in 32968ms | chunks_retrieved=3 | model=llama3.2:3b
+2026-04-14 15:42:44 | DEBUG    | app.services.evaluation:_build_eval_rows:182 —   [2/2] Running RAG for: Machine Learning có những loại nào?…
+2026-04-14 15:42:46 | WARNING  | app.services.vector_store:similarity_search:60 — No chunks passed threshold %.3f, fallback to top-%d results
+2026-04-14 15:42:46 | DEBUG    | app.services.vector_store:similarity_search:66 — Retrieved 3/3 chunks above threshold 0.3
+2026-04-14 15:42:54 | INFO     | app.services.rag_chain:query:75 — Query answered in 10128ms | chunks_retrieved=3 | model=llama3.2:3b
+2026-04-14 15:42:54 | INFO     | app.services.evaluation:run:133 — Running RAGAS evaluation — this may take a few minutes …
+2026-04-14 15:45:55 | WARNING  | app.services.evaluation:_build_report:271 — RAGAS returned no usable numeric metrics. Falling back to 0.0 scores. Raw keys=%s
+2026-04-14 15:45:55 | INFO     | app.services.evaluation:run:144 — Evaluation complete | overall_score=0.0000 | saved to data\eval_results\eval_report_20260414_084555_full_weakpc_v3.json
