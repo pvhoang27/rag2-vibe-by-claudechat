@@ -1,0 +1,6 @@
+Chạy nhanh mặc định (3 mẫu):
+uv run python scripts/run_evaluation.py
+Chạy 2 mẫu cho nhanh hơn nữa:
+uv run python run_evaluation.py --samples 2
+Chạy full 8 mẫu khi cần:
+uv run python run_evaluation.py --samples 8

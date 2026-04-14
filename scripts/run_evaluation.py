@@ -6,6 +6,7 @@ Usage: python scripts/run_evaluation.py
 """
 
 import asyncio
+import argparse
 import sys
 import time
 from pathlib import Path
@@ -56,6 +57,20 @@ EVAL_SAMPLES = [
     },
 ]
 
+DEFAULT_SAMPLE_COUNT = 3
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run RAGAS evaluation against local API.")
+    parser.add_argument(
+        "-n",
+        "--samples",
+        type=int,
+        default=DEFAULT_SAMPLE_COUNT,
+        help=f"Number of QA samples to evaluate (default: {DEFAULT_SAMPLE_COUNT}, max: {len(EVAL_SAMPLES)})",
+    )
+    return parser.parse_args()
+
 
 async def _progress_heartbeat(stop_event: asyncio.Event, interval: int = 10) -> None:
     """Print periodic progress updates while waiting for a long-running request."""
@@ -79,11 +94,15 @@ async def _progress_heartbeat(stop_event: asyncio.Event, interval: int = 10) -> 
 async def main():
     import httpx
 
+    args = _parse_args()
+    requested_samples = max(1, min(args.samples, len(EVAL_SAMPLES)))
+    selected_samples = EVAL_SAMPLES[:requested_samples]
+
     BASE_URL = "http://localhost:8000"
 
     console.print(Panel.fit(
         "[bold cyan]RAG Chatbot — RAGAS Evaluation Runner[/bold cyan]\n"
-        f"Evaluating {len(EVAL_SAMPLES)} QA pairs",
+        f"Evaluating {len(selected_samples)}/{len(EVAL_SAMPLES)} QA pairs",
         border_style="cyan"
     ))
 
@@ -113,10 +132,10 @@ async def main():
             sys.exit(1)
 
     # Run evaluation
-    console.print(f"\n[yellow]3. Running RAGAS evaluation on {len(EVAL_SAMPLES)} samples…[/yellow]")
+    console.print(f"\n[yellow]3. Running RAGAS evaluation on {len(selected_samples)} samples…[/yellow]")
     console.print("   [dim]This may take several minutes depending on your machine…[/dim]\n")
 
-    payload = {"samples": EVAL_SAMPLES}
+    payload = {"samples": selected_samples}
     stop_event = asyncio.Event()
     heartbeat_task = asyncio.create_task(_progress_heartbeat(stop_event, interval=10))
 
