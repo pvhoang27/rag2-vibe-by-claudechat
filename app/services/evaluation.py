@@ -13,6 +13,7 @@ Metrics evaluated:
 from __future__ import annotations
 
 import json
+import math
 import re
 import threading
 from datetime import datetime
@@ -139,7 +140,7 @@ class EvaluationService:
                 message="Persisting report",
             )
 
-            report = self._build_report(result, sample_count=len(samples), selected_metrics=metrics)
+            report = self._build_report(result, sample_count=len(samples), selected_metrics=metrics, rows=rows)
             self._persist_report(report, rows, mode=run_mode, output_tag=output_tag)
             logger.info(
                 f"Evaluation complete | overall_score={report.overall_score:.4f} | "
@@ -184,6 +185,12 @@ class EvaluationService:
             context = [s.content for s in response.sources] if response.sources else [""]
             rows.append(
                 {
+                    # RAGAS v0.2+ preferred schema
+                    "user_input": sample.question,
+                    "response": response.answer,
+                    "retrieved_contexts": context,
+                    "reference": sample.ground_truth,
+                    # Legacy aliases retained for compatibility with older versions/tools
                     "question": sample.question,
                     "answer": response.answer,
                     "contexts": context,
@@ -226,7 +233,7 @@ class EvaluationService:
             current["updated_at"] = datetime.utcnow()
             self._progress = EvalProgress(**current)
 
-    def _build_report(self, ragas_result, sample_count: int, selected_metrics: list) -> EvalReport:
+    def _build_report(self, ragas_result, sample_count: int, selected_metrics: list, rows: list[dict]) -> EvalReport:
         metric_scores: list[MetricScore] = []
         raw_scores: list[float] = []
 
@@ -267,26 +274,38 @@ class EvaluationService:
                     pass
 
         normalized = self._normalize_metric_scores(scores_by_metric)
+        heuristic = self._heuristic_scores(rows)
+        used_fallback = False
         if not normalized:
             logger.warning(
                 "RAGAS returned no usable numeric metrics. Falling back to 0.0 scores. Raw keys=%s",
                 sorted(scores_by_metric.keys()),
             )
+            if heuristic:
+                used_fallback = True
 
         for metric_name, description in METRIC_DESCRIPTIONS.items():
             if selected_metric_names and metric_name not in selected_metric_names:
                 continue
-            score = float(normalized.get(metric_name, 0.0) or 0.0)
+            score = normalized.get(metric_name)
+            metric_description = description
+            if score is None and metric_name in heuristic:
+                score = heuristic[metric_name]
+                used_fallback = True
+                metric_description = f"{description} [fallback heuristic]"
+            score = float(score or 0.0)
             raw_scores.append(score)
             metric_scores.append(
                 MetricScore(
                     name=metric_name,
                     score=round(score, 4),
-                    description=description,
+                    description=metric_description,
                 )
             )
 
         overall = round(sum(raw_scores) / len(raw_scores), 4) if raw_scores else 0.0
+        if used_fallback:
+            logger.warning("One or more metrics used heuristic fallback scoring due unusable RAGAS output")
 
         return EvalReport(
             metrics=metric_scores,
@@ -306,14 +325,63 @@ class EvaluationService:
                         value = float(lowered[alias])
                     except (TypeError, ValueError):
                         continue
-                    if not pd.notna(value):
-                        logger.warning("Metric '%s' returned NaN; treating as 0.0", canonical)
-                        value = 0.0
+                    if not pd.notna(value) or not math.isfinite(value):
+                        logger.warning("Metric '%s' returned non-finite value; will use fallback if available", canonical)
+                        continue
                     # Keep scores in expected range to avoid noisy displays from upstream libs.
                     value = max(0.0, min(1.0, value))
                     normalized[canonical] = value
                     break
         return normalized
+
+    def _heuristic_scores(self, rows: list[dict]) -> dict[str, float]:
+        if not rows:
+            return {}
+
+        def _tokens(text: str) -> set[str]:
+            items = re.findall(r"\w+", (text or "").lower(), flags=re.UNICODE)
+            return {tok for tok in items if len(tok) >= 2}
+
+        def _safe_ratio(a: set[str], b: set[str]) -> float:
+            if not a:
+                return 0.0
+            return len(a & b) / max(len(a), 1)
+
+        faithfulness_vals: list[float] = []
+        relevancy_vals: list[float] = []
+        recall_vals: list[float] = []
+        precision_vals: list[float] = []
+
+        for row in rows:
+            question_t = _tokens(str(row.get("question", "")))
+            answer_t = _tokens(str(row.get("answer", "")))
+            gt_t = _tokens(str(row.get("ground_truth", "")))
+
+            contexts = row.get("contexts") or []
+            if isinstance(contexts, str):
+                contexts = [contexts]
+            context_text = " ".join(str(x) for x in contexts)
+            context_t = _tokens(context_text)
+
+            faithfulness_vals.append(_safe_ratio(answer_t, context_t))
+            # Relevancy combines relation to question and to expected answer.
+            rel_q = _safe_ratio(question_t, answer_t)
+            rel_gt = _safe_ratio(gt_t, answer_t)
+            relevancy_vals.append((rel_q * 0.4) + (rel_gt * 0.6))
+            recall_vals.append(_safe_ratio(gt_t, context_t))
+            precision_vals.append(_safe_ratio(context_t, gt_t))
+
+        def _avg(values: list[float]) -> float:
+            if not values:
+                return 0.0
+            return max(0.0, min(1.0, float(sum(values) / len(values))))
+
+        return {
+            "faithfulness": _avg(faithfulness_vals),
+            "answer_relevancy": _avg(relevancy_vals),
+            "context_recall": _avg(recall_vals),
+            "context_precision": _avg(precision_vals),
+        }
 
     def _persist_report(self, report: EvalReport, rows: list[dict], mode: str, output_tag: str | None) -> None:
         out_dir = Path(self._settings.eval_output_dir)
