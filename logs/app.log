@@ -2619,3 +2619,15 @@ ValueError: Could not parse RAGAS metric scores from response. Available keys: [
 2026-04-14 15:52:59 | INFO     | app.main:lifespan:25 — LLM  : llama3.2:3b  @  http://localhost:11434
 2026-04-14 15:52:59 | INFO     | app.main:lifespan:26 — Embed: nomic-embed-text
 2026-04-14 15:52:59 | INFO     | app.main:lifespan:28 — Shutting down …
+2026-04-14 15:53:11 | INFO     | app.main:lifespan:24 — Starting RAG Chatbot v0.1.0 [development]
+2026-04-14 15:53:11 | INFO     | app.main:lifespan:25 — LLM  : llama3.2:3b  @  http://localhost:11434
+2026-04-14 15:53:11 | INFO     | app.main:lifespan:26 — Embed: nomic-embed-text
+2026-04-14 15:53:13 | INFO     | app.services.evaluation:run:108 — Starting evaluation on 1 samples (mode=full) …
+2026-04-14 15:53:13 | DEBUG    | app.services.evaluation:_build_eval_rows:183 —   [1/1] Running RAG for: AI là gì và được phát minh vào năm nào?…
+2026-04-14 15:53:16 | WARNING  | app.services.vector_store:similarity_search:60 — No chunks passed threshold %.3f, fallback to top-%d results
+2026-04-14 15:53:16 | DEBUG    | app.services.vector_store:similarity_search:66 — Retrieved 3/3 chunks above threshold 0.3
+2026-04-14 15:54:11 | INFO     | app.services.rag_chain:query:75 — Query answered in 57297ms | chunks_retrieved=3 | model=llama3.2:3b
+2026-04-14 15:54:11 | INFO     | app.services.evaluation:run:134 — Running RAGAS evaluation — this may take a few minutes …
+2026-04-14 15:57:12 | WARNING  | app.services.evaluation:_build_report:280 — RAGAS returned no usable numeric metrics. Falling back to 0.0 scores. Raw keys=%s
+2026-04-14 15:57:12 | WARNING  | app.services.evaluation:_build_report:308 — One or more metrics used heuristic fallback scoring due unusable RAGAS output
+2026-04-14 15:57:12 | INFO     | app.services.evaluation:run:145 — Evaluation complete | overall_score=0.7911 | saved to data\eval_results\eval_report_20260414_085712_full_fallback_check_v1.json

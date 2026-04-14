@@ -1,0 +1,29 @@
+{
+  "metrics": [
+    {
+      "name": "faithfulness",
+      "score": 0.8,
+      "description": "C\u00e2u tr\u1ea3 l\u1eddi c\u00f3 c\u0103n c\u1ee9 trong context \u0111\u00e3 retrieve kh\u00f4ng (0\u20131, c\u00e0ng cao c\u00e0ng t\u1ed1t) [fallback heuristic]"
+    },
+    {
+      "name": "answer_relevancy",
+      "score": 0.84,
+      "description": "C\u00e2u tr\u1ea3 l\u1eddi c\u00f3 li\u00ean quan \u0111\u1ebfn c\u00e2u h\u1ecfi kh\u00f4ng (0\u20131, c\u00e0ng cao c\u00e0ng t\u1ed1t) [fallback heuristic]"
+    },
+    {
+      "name": "context_recall",
+      "score": 0.9667,
+      "description": "Context retrieve \u0111\u01b0\u1ee3c bao ph\u1ee7 ground truth \u0111\u1ebfn \u0111\u00e2u (0\u20131, c\u00e0ng cao c\u00e0ng t\u1ed1t) [fallback heuristic]"
+    },
+    {
+      "name": "context_precision",
+      "score": 0.5577,
+      "description": "Context retrieve c\u00f3 ch\u00ednh x\u00e1c, kh\u00f4ng c\u00f3 nhi\u1ec5u kh\u00f4ng (0\u20131, c\u00e0ng cao c\u00e0ng t\u1ed1t) [fallback heuristic]"
+    }
+  ],
+  "overall_score": 0.7911,
+  "sample_count": 1,
+  "model": "llama3.2:3b",
+  "timestamp": "2026-04-14 08:57:12.486766",
+  "output_path": "data\\eval_results\\eval_report_20260414_085712_full_fallback_check_v1.json"
+}
