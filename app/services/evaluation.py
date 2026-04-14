@@ -1,0 +1,159 @@
+"""
+app/services/evaluation.py
+---------------------------
+Professional RAG evaluation using RAGAS framework.
+
+Metrics evaluated:
+  - faithfulness      : Is the answer grounded in retrieved context?
+  - answer_relevancy  : How relevant is the answer to the question?
+  - context_recall    : How much of the ground truth is covered by context?
+  - context_precision : How precise is the retrieval (no noisy chunks)?
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+from datasets import Dataset
+from ragas import evaluate
+from ragas.metrics import (
+    faithfulness,
+    answer_relevancy,
+    context_recall,
+    context_precision,
+)
+from ragas.llms import LangchainLLMWrapper
+from ragas.embeddings import LangchainEmbeddingsWrapper
+from langchain_ollama import OllamaLLM
+from langchain_community.embeddings import OllamaEmbeddings
+
+from app.core.config import get_settings
+from app.core.logger import logger
+from app.models.schemas import EvalReport, EvalSample, MetricScore
+from app.services.rag_chain import RAGChainService
+
+
+METRIC_DESCRIPTIONS = {
+    "faithfulness": "Câu trả lời có căn cứ trong context đã retrieve không (0–1, càng cao càng tốt)",
+    "answer_relevancy": "Câu trả lời có liên quan đến câu hỏi không (0–1, càng cao càng tốt)",
+    "context_recall": "Context retrieve được bao phủ ground truth đến đâu (0–1, càng cao càng tốt)",
+    "context_precision": "Context retrieve có chính xác, không có nhiễu không (0–1, càng cao càng tốt)",
+}
+
+
+class EvaluationService:
+    """Orchestrates RAGAS-based evaluation of the RAG pipeline."""
+
+    def __init__(self, rag_chain: RAGChainService) -> None:
+        self._settings = get_settings()
+        self._rag_chain = rag_chain
+        # Wrap Ollama models for RAGAS
+        self._llm_wrapper = LangchainLLMWrapper(
+            OllamaLLM(
+                base_url=self._settings.ollama_base_url,
+                model=self._settings.ollama_llm_model,
+                temperature=0,
+            )
+        )
+        self._embed_wrapper = LangchainEmbeddingsWrapper(
+            OllamaEmbeddings(
+                base_url=self._settings.ollama_base_url,
+                model=self._settings.ollama_embed_model,
+            )
+        )
+
+    def run(self, samples: list[EvalSample]) -> EvalReport:
+        """
+        Execute full RAGAS evaluation pipeline.
+
+        Steps:
+          1. For each sample, run RAG chain to get answer + context.
+          2. Build HuggingFace Dataset expected by RAGAS.
+          3. Run RAGAS metrics with local Ollama models.
+          4. Aggregate scores into EvalReport and persist to disk.
+        """
+        logger.info(f"Starting evaluation on {len(samples)} samples …")
+
+        rows = self._build_eval_rows(samples)
+        dataset = Dataset.from_list(rows)
+
+        metrics = [faithfulness, answer_relevancy, context_recall, context_precision]
+        for metric in metrics:
+            metric.llm = self._llm_wrapper
+            if hasattr(metric, "embeddings"):
+                metric.embeddings = self._embed_wrapper
+
+        logger.info("Running RAGAS evaluation — this may take a few minutes …")
+        result = evaluate(dataset=dataset, metrics=metrics)
+
+        report = self._build_report(result, sample_count=len(samples))
+        self._persist_report(report, rows)
+        logger.info(
+            f"Evaluation complete | overall_score={report.overall_score:.4f} | "
+            f"saved to {report.output_path}"
+        )
+        return report
+
+    # ── Private helpers ───────────────────────────────────────────────────────
+
+    def _build_eval_rows(self, samples: list[EvalSample]) -> list[dict]:
+        rows = []
+        for i, sample in enumerate(samples):
+            logger.debug(f"  [{i + 1}/{len(samples)}] Running RAG for: {sample.question[:60]}…")
+            response = self._rag_chain.query(sample.question)
+            context = [s.content for s in response.sources] if response.sources else [""]
+            rows.append(
+                {
+                    "question": sample.question,
+                    "answer": response.answer,
+                    "contexts": context,
+                    "ground_truth": sample.ground_truth,
+                }
+            )
+        return rows
+
+    def _build_report(self, ragas_result, sample_count: int) -> EvalReport:
+        metric_scores: list[MetricScore] = []
+        raw_scores: list[float] = []
+
+        for metric_name, description in METRIC_DESCRIPTIONS.items():
+            score = float(ragas_result.get(metric_name, 0.0) or 0.0)
+            raw_scores.append(score)
+            metric_scores.append(
+                MetricScore(
+                    name=metric_name,
+                    score=round(score, 4),
+                    description=description,
+                )
+            )
+
+        overall = round(sum(raw_scores) / len(raw_scores), 4) if raw_scores else 0.0
+
+        return EvalReport(
+            metrics=metric_scores,
+            overall_score=overall,
+            sample_count=sample_count,
+            model=self._settings.ollama_llm_model,
+        )
+
+    def _persist_report(self, report: EvalReport, rows: list[dict]) -> None:
+        out_dir = Path(self._settings.eval_output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        json_path = out_dir / f"eval_report_{timestamp}.json"
+        csv_path = out_dir / f"eval_detail_{timestamp}.csv"
+
+        # Save JSON report
+        json_path.write_text(
+            json.dumps(report.model_dump(), indent=2, default=str),
+            encoding="utf-8",
+        )
+
+        # Save per-sample CSV
+        pd.DataFrame(rows).to_csv(csv_path, index=False, encoding="utf-8-sig")
+
+        report.output_path = str(json_path)
