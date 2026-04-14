@@ -165,14 +165,18 @@ async def _progress_polling(
                 last_signature = signature
 
             if stall_timeout_sec > 0 and stage not in {"done", "failed"}:
+                # Scoring can be CPU-bound without emitting intermediate progress.
+                effective_stall_timeout = stall_timeout_sec
+                if stage == "scoring":
+                    effective_stall_timeout = max(stall_timeout_sec * 3, 180)
                 stalled_for = int(time.perf_counter() - last_change_at)
-                if stalled_for >= stall_timeout_sec and not abort_event.is_set():
+                if stalled_for >= effective_stall_timeout and not abort_event.is_set():
                     abort_event.set()
                     sm, ss = divmod(stalled_for, 60)
                     console.print(
                         f"   [red]✗ No progress change for {sm:02d}:{ss:02d}. Auto-aborting request.[/red]"
                     )
-                elif stalled_for >= max(10, stall_timeout_sec // 2):
+                elif stalled_for >= max(10, effective_stall_timeout // 2):
                     if stalled_for != last_printed_stall_sec and stalled_for % 10 == 0:
                         sm, ss = divmod(stalled_for, 60)
                         console.print(

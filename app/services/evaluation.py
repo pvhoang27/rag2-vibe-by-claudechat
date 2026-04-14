@@ -268,10 +268,9 @@ class EvaluationService:
 
         normalized = self._normalize_metric_scores(scores_by_metric)
         if not normalized:
-            available = sorted(scores_by_metric.keys())
-            raise ValueError(
-                "Could not parse RAGAS metric scores from response. "
-                f"Available keys: {available}"
+            logger.warning(
+                "RAGAS returned no usable numeric metrics. Falling back to 0.0 scores. Raw keys=%s",
+                sorted(scores_by_metric.keys()),
             )
 
         for metric_name, description in METRIC_DESCRIPTIONS.items():
@@ -307,9 +306,13 @@ class EvaluationService:
                         value = float(lowered[alias])
                     except (TypeError, ValueError):
                         continue
-                    if pd.notna(value):
-                        normalized[canonical] = value
-                        break
+                    if not pd.notna(value):
+                        logger.warning("Metric '%s' returned NaN; treating as 0.0", canonical)
+                        value = 0.0
+                    # Keep scores in expected range to avoid noisy displays from upstream libs.
+                    value = max(0.0, min(1.0, value))
+                    normalized[canonical] = value
+                    break
         return normalized
 
     def _persist_report(self, report: EvalReport, rows: list[dict], mode: str, output_tag: str | None) -> None:
