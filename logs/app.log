@@ -2583,3 +2583,6 @@ ValueError: Could not parse RAGAS metric scores from response. Available keys: [
 2026-04-14 15:37:17 | WARNING  | app.services.evaluation:_build_report:271 — RAGAS returned no usable numeric metrics. Falling back to 0.0 scores. Raw keys=%s
 2026-04-14 15:37:17 | INFO     | app.services.evaluation:run:144 — Evaluation complete | overall_score=0.0000 | saved to data\eval_results\eval_report_20260414_083717_fast_weakpc_v2.json
 2026-04-14 15:37:17 | INFO     | app.main:lifespan:28 — Shutting down …
+2026-04-14 15:37:55 | INFO     | app.main:lifespan:24 — Starting RAG Chatbot v0.1.0 [development]
+2026-04-14 15:37:55 | INFO     | app.main:lifespan:25 — LLM  : llama3.2:3b  @  http://localhost:11434
+2026-04-14 15:37:55 | INFO     | app.main:lifespan:26 — Embed: nomic-embed-text
