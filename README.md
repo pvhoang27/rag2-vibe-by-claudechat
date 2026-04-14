@@ -213,11 +213,25 @@ Không cần server riêng cho frontend — nó gọi thẳng API backend.
 
 Trong giao diện hoặc qua API:
 
-```powershell
-curl -X POST http://localhost:8000/chat/query `
-  -H "Content-Type: application/json" `
-  -d "{\"question\": \"RAG là gì và tại sao cần dùng nó?\"}"
+**Lưu ý:** Đảm bảo Ollama app đã chạy trước khi gửi câu hỏi!
+
+**Linux/macOS (curl):**
+```bash
+curl -X POST http://localhost:8000/chat/query \
+     -H "Content-Type: application/json" \
+     -d '{"question": "RAG là gì và tại sao cần dùng nó?"}'
 ```
+
+**Windows PowerShell:**
+```powershell
+$body = @{ question = "RAG là gì và tại sao cần dùng nó?" } | ConvertTo-Json
+Invoke-RestMethod -Uri http://localhost:8000/chat/query `
+     -Method POST `
+     -ContentType "application/json" `
+     -Body $body
+```
+
+> Nếu gặp lỗi kết nối 11434, hãy kiểm tra Ollama app đã mở chưa (hoặc đã chạy ngầm)!
 
 ---
 
