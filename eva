@@ -1,0 +1,49 @@
+                                                               uv run python run_evaluation.py --samples 2 --stall-timeout 0 --tag weakpc_v4
+╭───────────────────────────────────────╮
+│ RAG Chatbot — RAGAS Evaluation Runner │
+│ Evaluating 2/8 QA pairs               │
+╰───────────────────────────────────────╯
+
+1. Checking server health…
+   ✓ Server is running
+
+2. Checking vector collection…
+   ✓ Collection 'rag_collection' has 138 chunks
+
+3. Running RAGAS evaluation on 2 samples (full mode)…
+   This may take several minutes depending on your machine…
+
+    17.50% [████░░░░░░░░░░░░░░░░░░░░] retrieving 0/2 | 00:00
+   Retrieving context for sample 1/2
+    52.50% [████████████░░░░░░░░░░░░] retrieving 1/2 | 00:41
+   Retrieving context for sample 2/2
+    75.00% [██████████████████░░░░░░] scoring 2/2 | 00:53
+   Running RAGAS metrics
+                                                                             
+                         📊 RAGAS Evaluation Report                          
+╭────────────────────────┬────────────┬────────────┬────────────────────────╮
+│ Metric                 │   Score    │   Grade    │ Description            │
+├────────────────────────┼────────────┼────────────┼────────────────────────┤
+│ faithfulness           │   0.5667   │    Fair    │ Câu trả lời có căn cứ  │
+│                        │            │            │ trong context đã       │
+│                        │            │            │ retrieve không (0–1,   │
+│                        │            │            │ càng cao càng tốt)     │
+│ answer_relevancy       │   0.6000   │    Good    │ Câu trả lời có liên    │
+│                        │            │            │ quan đến câu hỏi không │
+│                        │            │            │ (0–1, càng cao càng    │
+│                        │            │            │ tốt)                   │
+│ context_recall         │   0.6833   │    Good    │ Context retrieve được  │
+│                        │            │            │ bao phủ ground truth   │
+│                        │            │            │ đến đâu (0–1, càng cao │
+│                        │            │            │ càng tốt)              │
+│ context_precision      │   0.3788   │    Poor    │ Context retrieve có    │
+│                        │            │            │ chính xác, không có    │
+│                        │            │            │ nhiễu không (0–1, càng │
+│                        │            │            │ cao càng tốt)          │
+├────────────────────────┼────────────┼────────────┼────────────────────────┤
+│ OVERALL                │   0.5572   │            │ Model: llama3.2:3b |   │
+│                        │            │            │ Samples: 2             │
+╰────────────────────────┴────────────┴────────────┴────────────────────────╯
+
+Full report saved to: 
+data\eval_results\eval_report_20260414_090423_full_weakpc_v4.json
