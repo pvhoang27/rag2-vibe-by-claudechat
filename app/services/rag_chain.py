@@ -78,15 +78,21 @@ class RAGChainService:
         )
 
         # 4. Build source list
-        sources = [
-            Source(
-                content=doc.page_content[:300],
-                source=doc.metadata.get("source", "unknown"),
-                page=doc.metadata.get("page"),
-                score=round(score, 4),
+        sources = []
+        for doc, score in results:
+            score_value = float(score) if score is not None else None
+            # Some vector backends may return non-normalized scores; hide them from UI.
+            if score_value is not None and not (0.0 <= score_value <= 1.0):
+                score_value = None
+
+            sources.append(
+                Source(
+                    content=doc.page_content[:300],
+                    source=doc.metadata.get("source") or "unknown",
+                    page=doc.metadata.get("page"),
+                    score=round(score_value, 4) if score_value is not None else None,
+                )
             )
-            for doc, score in results
-        ]
 
         return ChatResponse(
             answer=answer,

@@ -710,7 +710,9 @@
         <div class="source-item">
           <span class="source-file">📄 ${String(s.source || 'unknown').split(/[\\/]/).pop()}</span>
           <span class="source-text">${escHtml(String(s.content || '').slice(0, 120))}…</span>
-          ${s.score != null ? `<span class="source-score">${(s.score * 100).toFixed(0)}%</span>` : ''}
+          ${typeof s.score === 'number' && s.score >= 0 && s.score <= 1
+            ? `<span class="source-score">${(s.score * 100).toFixed(0)}%</span>`
+            : ''}
         </div>`).join('');
       sourcesHtml = `
         <div class="sources">
