@@ -55,6 +55,14 @@ class VectorStoreService:
         threshold = score_threshold or self._settings.similarity_threshold
         results = store.similarity_search_with_relevance_scores(query, k=k)
         filtered = [(doc, score) for doc, score in results if score >= threshold]
+        # Avoid returning an empty context when all candidates are just under threshold.
+        if results and not filtered:
+            logger.warning(
+                "No chunks passed threshold %.3f, fallback to top-%d results",
+                threshold,
+                len(results),
+            )
+            filtered = results
         logger.debug(f"Retrieved {len(filtered)}/{len(results)} chunks above threshold {threshold}")
         return filtered
 

@@ -662,12 +662,23 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = typeof data?.detail === 'string' ? data.detail : `HTTP ${res.status}`;
+        throw new Error(detail);
+      }
+      if (typeof data?.answer !== 'string') {
+        throw new Error('Server trả về dữ liệu không hợp lệ (thiếu answer).');
+      }
       typingEl.remove();
       appendBotMessage(data);
       const latEl = document.getElementById('topLatency');
-      latEl.textContent = `${data.latency_ms}ms`;
-      latEl.style.display = 'block';
+      if (typeof data.latency_ms === 'number') {
+        latEl.textContent = `${data.latency_ms}ms`;
+        latEl.style.display = 'block';
+      } else {
+        latEl.style.display = 'none';
+      }
     } catch (err) {
       typingEl.remove();
       appendMessage('bot', `⚠ Lỗi kết nối tới server: ${err.message}`);
@@ -697,8 +708,8 @@
     if (data.sources?.length) {
       const items = data.sources.map(s => `
         <div class="source-item">
-          <span class="source-file">📄 ${s.source.split(/[\\/]/).pop()}</span>
-          <span class="source-text">${escHtml(s.content.slice(0, 120))}…</span>
+          <span class="source-file">📄 ${String(s.source || 'unknown').split(/[\\/]/).pop()}</span>
+          <span class="source-text">${escHtml(String(s.content || '').slice(0, 120))}…</span>
           ${s.score != null ? `<span class="source-score">${(s.score * 100).toFixed(0)}%</span>` : ''}
         </div>`).join('');
       sourcesHtml = `
@@ -714,8 +725,8 @@
         ${escHtml(data.answer)}
         ${sourcesHtml}
         <div class="msg-meta">
-          <span>⏱ ${data.latency_ms}ms</span>
-          <span>🧠 ${data.model}</span>
+          <span>⏱ ${typeof data.latency_ms === 'number' ? `${data.latency_ms}ms` : 'n/a'}</span>
+          <span>🧠 ${data.model || 'unknown'}</span>
         </div>
       </div>`;
     messagesEl.appendChild(wrap);
@@ -877,7 +888,8 @@
 
   // ── Helpers ───────────────────────────────────────────────
   function escHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    const safe = str == null ? '' : String(str);
+    return safe.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
   }
 
   let toastTimer;
