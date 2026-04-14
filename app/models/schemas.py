@@ -76,3 +76,13 @@ class EvalReport(BaseModel):
     model: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     output_path: Optional[str] = None
+
+
+class EvalProgress(BaseModel):
+    is_running: bool
+    stage: str
+    percent: float = Field(ge=0.0, le=100.0)
+    completed_samples: int = 0
+    total_samples: int = 0
+    message: Optional[str] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

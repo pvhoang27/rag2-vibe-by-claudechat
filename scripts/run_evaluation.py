@@ -78,19 +78,46 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def _progress_heartbeat(stop_event: asyncio.Event, interval: int = 10) -> None:
-    """Print periodic progress updates while waiting for a long-running request."""
+def _render_progress_bar(percent: float, width: int = 24) -> str:
+    filled = int((max(0.0, min(100.0, percent)) / 100.0) * width)
+    return "█" * filled + "░" * (width - filled)
+
+
+async def _progress_polling(base_url: str, stop_event: asyncio.Event, interval: int = 2) -> None:
+    """Poll /eval/progress and print true server-side percent progress."""
+    import httpx
+
     start = time.perf_counter()
-    tick = 0
-    spinner = ["|", "/", "-", "\\"]
+    last_signature = None
     while not stop_event.is_set():
-        elapsed = int(time.perf_counter() - start)
-        mm, ss = divmod(elapsed, 60)
-        icon = spinner[tick % len(spinner)]
-        console.print(
-            f"   [dim]{icon} Processing... elapsed {mm:02d}:{ss:02d} (waiting for /eval/run)[/dim]"
-        )
-        tick += 1
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{base_url}/eval/progress")
+                r.raise_for_status()
+                payload = r.json()
+
+            percent = float(payload.get("percent", 0.0) or 0.0)
+            stage = str(payload.get("stage", "running") or "running")
+            done = int(payload.get("completed_samples", 0) or 0)
+            total = int(payload.get("total_samples", 0) or 0)
+            message = str(payload.get("message", "") or "")
+
+            signature = (round(percent, 2), stage, done, total, message)
+            if signature != last_signature:
+                elapsed = int(time.perf_counter() - start)
+                mm, ss = divmod(elapsed, 60)
+                bar = _render_progress_bar(percent)
+                sample_text = f" {done}/{total}" if total > 0 else ""
+                console.print(
+                    f"   [cyan]{percent:6.2f}%[/cyan] [{bar}] [dim]{stage}{sample_text} | {mm:02d}:{ss:02d}[/dim]"
+                )
+                if message:
+                    console.print(f"   [dim]{message}[/dim]")
+                last_signature = signature
+        except Exception:
+            # Keep polling even if server is briefly unavailable during reload.
+            pass
+
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
         except asyncio.TimeoutError:
@@ -162,7 +189,7 @@ async def main():
 
     payload = {"samples": selected_samples}
     stop_event = asyncio.Event()
-    heartbeat_task = asyncio.create_task(_progress_heartbeat(stop_event, interval=10))
+    progress_task = asyncio.create_task(_progress_polling(BASE_URL, stop_event, interval=2))
 
     report = None
     try:
@@ -190,7 +217,7 @@ async def main():
         sys.exit(1)
     finally:
         stop_event.set()
-        await heartbeat_task
+        await progress_task
 
     # Display results table
     table = Table(

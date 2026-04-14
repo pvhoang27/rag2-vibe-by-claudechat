@@ -9,10 +9,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 
 from app.core.dependencies import get_evaluation_service
 from app.core.logger import logger
-from app.models.schemas import EvalReport, EvalRequest
+from app.models.schemas import EvalProgress, EvalReport, EvalRequest
 from app.services.evaluation import EvaluationService
 
 router = APIRouter(prefix="/eval", tags=["Evaluation"])
@@ -34,7 +35,15 @@ async def run_evaluation(
     if not body.samples:
         raise HTTPException(status_code=422, detail="samples list cannot be empty")
     try:
-        return service.run(body.samples)
+        return await run_in_threadpool(service.run, body.samples)
     except Exception as exc:
         logger.exception("Evaluation run failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/progress", response_model=EvalProgress)
+async def evaluation_progress(
+    service: Annotated[EvaluationService, Depends(get_evaluation_service)] = None,
+) -> EvalProgress:
+    """Return current evaluation progress for CLI polling."""
+    return service.get_progress()

@@ -13,6 +13,7 @@ Metrics evaluated:
 from __future__ import annotations
 
 import json
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -32,7 +33,7 @@ from langchain_community.embeddings import OllamaEmbeddings
 
 from app.core.config import get_settings
 from app.core.logger import logger
-from app.models.schemas import EvalReport, EvalSample, MetricScore
+from app.models.schemas import EvalProgress, EvalReport, EvalSample, MetricScore
 from app.services.rag_chain import RAGChainService
 
 
@@ -50,6 +51,15 @@ class EvaluationService:
     def __init__(self, rag_chain: RAGChainService) -> None:
         self._settings = get_settings()
         self._rag_chain = rag_chain
+        self._progress_lock = threading.Lock()
+        self._progress = EvalProgress(
+            is_running=False,
+            stage="idle",
+            percent=0.0,
+            completed_samples=0,
+            total_samples=0,
+            message="Ready",
+        )
         # Wrap Ollama models for RAGAS
         self._llm_wrapper = LangchainLLMWrapper(
             OllamaLLM(
@@ -76,32 +86,79 @@ class EvaluationService:
           4. Aggregate scores into EvalReport and persist to disk.
         """
         logger.info(f"Starting evaluation on {len(samples)} samples …")
-
-        rows = self._build_eval_rows(samples)
-        dataset = Dataset.from_list(rows)
-
-        metrics = [faithfulness, answer_relevancy, context_recall, context_precision]
-        for metric in metrics:
-            metric.llm = self._llm_wrapper
-            if hasattr(metric, "embeddings"):
-                metric.embeddings = self._embed_wrapper
-
-        logger.info("Running RAGAS evaluation — this may take a few minutes …")
-        result = evaluate(dataset=dataset, metrics=metrics)
-
-        report = self._build_report(result, sample_count=len(samples))
-        self._persist_report(report, rows)
-        logger.info(
-            f"Evaluation complete | overall_score={report.overall_score:.4f} | "
-            f"saved to {report.output_path}"
+        self._set_progress(
+            is_running=True,
+            stage="retrieving",
+            percent=0.0,
+            completed_samples=0,
+            total_samples=len(samples),
+            message="Preparing evaluation",
         )
-        return report
+
+        try:
+            rows = self._build_eval_rows(samples)
+            dataset = Dataset.from_list(rows)
+
+            self._set_progress(
+                stage="scoring",
+                percent=75.0,
+                message="Running RAGAS metrics",
+            )
+
+            metrics = [faithfulness, answer_relevancy, context_recall, context_precision]
+            for metric in metrics:
+                metric.llm = self._llm_wrapper
+                if hasattr(metric, "embeddings"):
+                    metric.embeddings = self._embed_wrapper
+
+            logger.info("Running RAGAS evaluation — this may take a few minutes …")
+            result = evaluate(dataset=dataset, metrics=metrics)
+
+            self._set_progress(
+                stage="finalizing",
+                percent=95.0,
+                message="Persisting report",
+            )
+
+            report = self._build_report(result, sample_count=len(samples))
+            self._persist_report(report, rows)
+            logger.info(
+                f"Evaluation complete | overall_score={report.overall_score:.4f} | "
+                f"saved to {report.output_path}"
+            )
+            self._set_progress(
+                is_running=False,
+                stage="done",
+                percent=100.0,
+                completed_samples=len(samples),
+                total_samples=len(samples),
+                message="Evaluation complete",
+            )
+            return report
+        except Exception as exc:
+            self._set_progress(
+                is_running=False,
+                stage="failed",
+                message=f"Evaluation failed: {exc}",
+            )
+            raise
+
+    def get_progress(self) -> EvalProgress:
+        with self._progress_lock:
+            return self._progress.model_copy(deep=True)
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _build_eval_rows(self, samples: list[EvalSample]) -> list[dict]:
         rows = []
         for i, sample in enumerate(samples):
+            self._set_progress(
+                stage="retrieving",
+                percent=round(((i / max(len(samples), 1)) * 70.0), 2),
+                completed_samples=i,
+                total_samples=len(samples),
+                message=f"Retrieving context for sample {i + 1}/{len(samples)}",
+            )
             logger.debug(f"  [{i + 1}/{len(samples)}] Running RAG for: {sample.question[:60]}…")
             response = self._rag_chain.query(sample.question)
             context = [s.content for s in response.sources] if response.sources else [""]
@@ -113,7 +170,41 @@ class EvaluationService:
                     "ground_truth": sample.ground_truth,
                 }
             )
+            self._set_progress(
+                stage="retrieving",
+                percent=round((((i + 1) / max(len(samples), 1)) * 70.0), 2),
+                completed_samples=i + 1,
+                total_samples=len(samples),
+                message=f"Retrieved sample {i + 1}/{len(samples)}",
+            )
         return rows
+
+    def _set_progress(
+        self,
+        *,
+        is_running: bool | None = None,
+        stage: str | None = None,
+        percent: float | None = None,
+        completed_samples: int | None = None,
+        total_samples: int | None = None,
+        message: str | None = None,
+    ) -> None:
+        with self._progress_lock:
+            current = self._progress.model_dump()
+            if is_running is not None:
+                current["is_running"] = is_running
+            if stage is not None:
+                current["stage"] = stage
+            if percent is not None:
+                current["percent"] = max(0.0, min(100.0, float(percent)))
+            if completed_samples is not None:
+                current["completed_samples"] = max(0, completed_samples)
+            if total_samples is not None:
+                current["total_samples"] = max(0, total_samples)
+            if message is not None:
+                current["message"] = message
+            current["updated_at"] = datetime.utcnow()
+            self._progress = EvalProgress(**current)
 
     def _build_report(self, ragas_result, sample_count: int) -> EvalReport:
         metric_scores: list[MetricScore] = []
