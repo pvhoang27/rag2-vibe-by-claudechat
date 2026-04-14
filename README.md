@@ -130,8 +130,8 @@ cd rag_chatbot
 # Tạo virtual environment và cài dependencies
 uv sync
 
-# Kích hoạt môi trường ảo
-.venv\Scripts\activate
+# Kích hoạt môi trường ảo (PowerShell)
+.\.venv\Scripts\Activate.ps1
 ```
 
 > `uv sync` sẽ đọc `pyproject.toml` và cài tất cả dependencies tự động.
@@ -186,14 +186,19 @@ INFO:     Uvicorn running on http://0.0.0.0:8000
 Mở trình duyệt vào **http://localhost:8000/docs** (Swagger UI), hoặc dùng lệnh curl:
 
 ```powershell
-# Ingest toàn bộ thư mục data/raw/
-curl -X POST http://localhost:8000/ingest/directory
+# Ingest toàn bộ thư mục data/raw/ (Windows/PowerShell)
+Invoke-WebRequest -Uri http://localhost:8000/ingest/directory -Method POST
 ```
 
-Hoặc upload file trực tiếp:
+Hoặc upload file trực tiếp (nên dùng Swagger UI):
 ```powershell
-curl -X POST http://localhost:8000/ingest/file -F "file=@data/raw/gioi_thieu_ai.txt"
+# (khuyến nghị dùng Swagger UI thay vì lệnh này trên Windows)
+Invoke-WebRequest -Uri http://localhost:8000/ingest/file -Method POST -InFile "data/raw/gioi_thieu_ai.txt" -ContentType "multipart/form-data"
 ```
+
+> ⚠️ **Lưu ý:**
+> - Trên PowerShell, lệnh `curl` thực chất là alias cho `Invoke-WebRequest` và KHÔNG hỗ trợ tham số `-X` như trên Linux/macOS. Hãy dùng đúng cú pháp trên.
+> - Nếu muốn upload file qua API, nên dùng Swagger UI tại http://localhost:8000/docs để tránh lỗi multipart trên PowerShell.
 
 ---
 
@@ -270,6 +275,7 @@ Mỗi metric được tính bởi chính LLM local (Ollama), đảm bảo đánh
 | `model not found` | Chưa pull model | `ollama pull llama3.2:3b` |
 | `Out of memory` | RAM không đủ | Dùng `llama3.2:1b` |
 | `No documents found` | Chưa ingest | Chạy `POST /ingest/directory` |
+| `documents_added: 0` khi ingest | Lỗi code backend hoặc dependency | Đảm bảo đã restart server sau khi sửa code, kiểm tra log `logs/app.log` để xem lỗi chi tiết. Nếu vẫn lỗi, liên hệ tác giả hoặc kiểm tra lại các package langchain, chromadb, ... |
 | `chromadb error` | Conflict version | `uv sync --reinstall` |
 
 ---
