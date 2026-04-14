@@ -151,10 +151,11 @@ class EvaluationService:
 
     def _build_eval_rows(self, samples: list[EvalSample]) -> list[dict]:
         rows = []
+        total = max(len(samples), 1)
         for i, sample in enumerate(samples):
             self._set_progress(
                 stage="retrieving",
-                percent=round(((i / max(len(samples), 1)) * 70.0), 2),
+                percent=round((((i + 0.5) / total) * 70.0), 2),
                 completed_samples=i,
                 total_samples=len(samples),
                 message=f"Retrieving context for sample {i + 1}/{len(samples)}",
@@ -172,7 +173,7 @@ class EvaluationService:
             )
             self._set_progress(
                 stage="retrieving",
-                percent=round((((i + 1) / max(len(samples), 1)) * 70.0), 2),
+                percent=round((((i + 1) / total) * 70.0), 2),
                 completed_samples=i + 1,
                 total_samples=len(samples),
                 message=f"Retrieved sample {i + 1}/{len(samples)}",

@@ -241,6 +241,22 @@ Invoke-RestMethod -Uri http://localhost:8000/chat/query `
 uv run python scripts/run_evaluation.py
 ```
 
+Máy yếu nên chạy nhanh với ít mẫu hơn:
+
+```powershell
+uv run python scripts/run_evaluation.py --samples 1
+```
+
+Script có thanh tiến trình `%` theo thời gian thực và tự dừng nếu tiến trình không đổi quá lâu (mặc định 180 giây):
+
+```powershell
+# Tự dừng sau 120 giây nếu % không thay đổi
+uv run python scripts/run_evaluation.py --samples 1 --stall-timeout 120
+
+# Tắt tự dừng
+uv run python scripts/run_evaluation.py --samples 1 --stall-timeout 0
+```
+
 Hoặc qua API:
 ```powershell
 curl -X POST http://localhost:8000/eval/run `

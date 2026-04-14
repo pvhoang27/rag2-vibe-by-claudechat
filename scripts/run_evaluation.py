@@ -7,6 +7,7 @@ Usage: python scripts/run_evaluation.py
 
 import asyncio
 import argparse
+import contextlib
 import sys
 import time
 from pathlib import Path
@@ -75,6 +76,12 @@ def _parse_args() -> argparse.Namespace:
         default="http://127.0.0.1:8000",
         help="API base URL (default: http://127.0.0.1:8000)",
     )
+    parser.add_argument(
+        "--stall-timeout",
+        type=int,
+        default=180,
+        help="Auto-abort if progress does not change for N seconds (default: 180, set 0 to disable)",
+    )
     return parser.parse_args()
 
 
@@ -83,12 +90,20 @@ def _render_progress_bar(percent: float, width: int = 24) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
-async def _progress_polling(base_url: str, stop_event: asyncio.Event, interval: int = 2) -> None:
+async def _progress_polling(
+    base_url: str,
+    stop_event: asyncio.Event,
+    abort_event: asyncio.Event,
+    stall_timeout_sec: int,
+    interval: int = 2,
+) -> None:
     """Poll /eval/progress and print true server-side percent progress."""
     import httpx
 
     start = time.perf_counter()
     last_signature = None
+    last_change_at = time.perf_counter()
+    last_printed_stall_sec = -1
     while not stop_event.is_set():
         try:
             async with httpx.AsyncClient(timeout=5) as client:
@@ -98,12 +113,19 @@ async def _progress_polling(base_url: str, stop_event: asyncio.Event, interval: 
 
             percent = float(payload.get("percent", 0.0) or 0.0)
             stage = str(payload.get("stage", "running") or "running")
+            is_running = bool(payload.get("is_running", False))
             done = int(payload.get("completed_samples", 0) or 0)
             total = int(payload.get("total_samples", 0) or 0)
             message = str(payload.get("message", "") or "")
 
+            if not is_running and stage == "idle" and percent <= 0.0:
+                # Skip noisy pre-run idle states.
+                await asyncio.sleep(0.2)
+                continue
+
             signature = (round(percent, 2), stage, done, total, message)
             if signature != last_signature:
+                last_change_at = time.perf_counter()
                 elapsed = int(time.perf_counter() - start)
                 mm, ss = divmod(elapsed, 60)
                 bar = _render_progress_bar(percent)
@@ -114,6 +136,22 @@ async def _progress_polling(base_url: str, stop_event: asyncio.Event, interval: 
                 if message:
                     console.print(f"   [dim]{message}[/dim]")
                 last_signature = signature
+
+            if stall_timeout_sec > 0 and stage not in {"done", "failed"}:
+                stalled_for = int(time.perf_counter() - last_change_at)
+                if stalled_for >= stall_timeout_sec and not abort_event.is_set():
+                    abort_event.set()
+                    sm, ss = divmod(stalled_for, 60)
+                    console.print(
+                        f"   [red]✗ No progress change for {sm:02d}:{ss:02d}. Auto-aborting request.[/red]"
+                    )
+                elif stalled_for >= max(10, stall_timeout_sec // 2):
+                    if stalled_for != last_printed_stall_sec and stalled_for % 10 == 0:
+                        sm, ss = divmod(stalled_for, 60)
+                        console.print(
+                            f"   [dim]No progress change for {sm:02d}:{ss:02d}...[/dim]"
+                        )
+                        last_printed_stall_sec = stalled_for
         except Exception:
             # Keep polling even if server is briefly unavailable during reload.
             pass
@@ -154,6 +192,7 @@ async def main():
     selected_samples = EVAL_SAMPLES[:requested_samples]
 
     BASE_URL = args.base_url.rstrip("/")
+    stall_timeout_sec = max(0, args.stall_timeout)
 
     console.print(Panel.fit(
         "[bold cyan]RAG Chatbot — RAGAS Evaluation Runner[/bold cyan]\n"
@@ -189,12 +228,34 @@ async def main():
 
     payload = {"samples": selected_samples}
     stop_event = asyncio.Event()
-    progress_task = asyncio.create_task(_progress_polling(BASE_URL, stop_event, interval=2))
+    abort_event = asyncio.Event()
+    progress_task = asyncio.create_task(
+        _progress_polling(
+            BASE_URL,
+            stop_event,
+            abort_event,
+            stall_timeout_sec=stall_timeout_sec,
+            interval=2,
+        )
+    )
 
     report = None
     try:
         async with httpx.AsyncClient(timeout=600) as client:
-            response = await client.post(f"{BASE_URL}/eval/run", json=payload)
+            request_task = asyncio.create_task(client.post(f"{BASE_URL}/eval/run", json=payload))
+            while not request_task.done():
+                if abort_event.is_set():
+                    request_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await request_task
+                    console.print(
+                        "   [yellow]Tip:[/yellow] reduce samples further (e.g. [bold]--samples 1[/bold]) "
+                        "or disable auto-abort with [bold]--stall-timeout 0[/bold]."
+                    )
+                    sys.exit(1)
+                await asyncio.sleep(0.5)
+
+            response = await request_task
             response.raise_for_status()
             report = response.json()
     except httpx.ReadTimeout:
